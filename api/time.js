@@ -19,7 +19,7 @@ const downloadFont = (url, outputPath, callback) => {
 };
 
 module.exports = async (req, res) => {
-    const { font = 'Arial', fontURL, tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
+    const { font = 'Pixel', fontURL, tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
 
     let fontFamily = font;
     const fontSizePx = parseInt(fontSize, 10);
@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
                     exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
                         if (err) {
                             console.error(`Error converting font: ${stderr}`);
-                            fontFamily = 'Arial'; // Fallback to Arial
+                            fontFamily = 'Pixel'; // Fallback to Pixel
                         } else {
                             console.log('Font converted successfully.');
                             try {
@@ -45,7 +45,7 @@ module.exports = async (req, res) => {
                                 fontFamily = 'CustomFont';
                             } catch (err) {
                                 console.error(`Failed to register custom font: ${err.message}`);
-                                fontFamily = 'Arial'; // Fallback to Arial
+                                fontFamily = 'Pixel'; // Fallback to Pixel
                             }
                         }
                         resolve();
@@ -58,8 +58,23 @@ module.exports = async (req, res) => {
                 fontFamily = 'CustomFont';
             } catch (err) {
                 console.error(`Failed to register custom font: ${err.message}`);
-                fontFamily = 'Arial'; // Fallback to Arial
+                fontFamily = 'Pixel'; // Fallback to Pixel
             }
+        }
+    } else {
+        // Default to Pixel font
+        try {
+            const pixelFontPath = path.resolve('./fonts/ms_sans_serif.ttf'); // Use the converted TTF file
+            if (fs.existsSync(pixelFontPath)) {
+                registerFont(pixelFontPath, { family: 'Pixel' });
+                fontFamily = 'Pixel';
+            } else {
+                console.error('Pixel font not found, falling back to Arial.');
+                fontFamily = 'Arial';
+            }
+        } catch (err) {
+            console.error(`Failed to register Pixel font: ${err.message}`);
+            fontFamily = 'Arial'; // Fallback to Arial
         }
     }
 
