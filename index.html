@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageClock Usage Guide</title>
+    <link rel="stylesheet" href="https://unpkg.com/98.css@0.1.20/dist/98.css">
+</head>
+<body>
+    <div class="window" style="width: 600px; margin: 50px auto;">
+        <div class="title-bar">
+            <div class="title-bar-text">ImageClock Usage Guide</div>
+        </div>
+        <div class="window-body">
+            <p><strong>Welcome to ImageClock!</strong></p>
+            <p>This web app returns the current time as an image. Use the <code>/time</code> endpoint with the following query parameters:</p>
+            <ul>
+                <li><code>font</code>: The font name (e.g., <code>Arial</code>, <code>Pixel</code>).</li>
+                <li><code>fontURL</code>: A URL to a custom font file (e.g., <code>.woff2</code>).</li>
+                <li><code>tz</code>: The time zone (e.g., <code>America/New_York</code>).</li>
+                <li><code>fontSize</code>: The font size in pixels (default: <code>40</code>).</li>
+                <li><code>color</code>: The text color in RGB hex format (e.g., <code>#FF0000</code>).</li>
+                <li><code>bgColor</code>: The background color in RGB hex format or <code>transparent</code> (default: <code>transparent</code>).</li>
+            </ul>
+            <p><strong>Example Usage:</strong></p>
+            <ul>
+                <li><code>/time?font=Arial&tz=America/New_York&fontSize=50&color=#FF0000&bgColor=#FFFFFF</code></li>
+                <li><code>/time?font=Pixel&tz=UTC&fontSize=30&color=#0000FF&bgColor=transparent</code></li>
+                <li><code>/time?fontURL=https://example.com/custom_font.woff2&tz=Europe/London</code></li>
+            </ul>
+            <p>Enjoy using ImageClock!</p>
+        </div>
+    </div>
+</body>
+</html>
