@@ -7,33 +7,66 @@
     <link rel="stylesheet" href="https://unpkg.com/98.css@0.1.20/dist/98.css">
 </head>
 <body>
-    <div class="window" style="width: 600px; margin: 50px auto;">
+    <div class="window" style="width: 600px; margin: 50px auto; position: relative;">
         <div class="title-bar">
             <div class="title-bar-text">ImageClock Usage Guide</div>
+            <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
         </div>
         <div class="window-body">
             <p><strong>Welcome to ImageClock!</strong></p>
-            <p>This web app returns the current time as an image. Use the <code>/time</code> endpoint with the following query parameters:</p>
+            <p>This web app returns the current time as an image. Use the <code>/api/time</code> endpoint with the following query parameters:</p>
             <ul>
                 <li><code>font</code>: The font name (e.g., <code>Arial</code>, <code>Pixel</code>).</li>
-                <li><code>fontURL</code>: A URL to a custom font file (e.g., <code>.woff2</code>).</li>
+                <li><code>fontURL</code> (optional): A URL to a custom font file (e.g., <code>.woff2</code>).</li>
                 <li><code>tz</code>: The time zone (e.g., <code>America/New_York</code>).</li>
-                <li><code>fontSize</code>: The font size in pixels (default: <code>40</code>).</li>
-                <li><code>color</code>: The text color in RGB hex format (e.g., <code>#FF0000</code>).</li>
-                <li><code>bgColor</code>: The background color in RGB hex format or <code>transparent</code> (default: <code>transparent</code>).</li>
+                <li><code>fontSize</code> (optional): The font size in pixels (default: <code>40</code>).</li>
+                <li><code>color</code> (optional): The text color in RGB hex format (e.g., <code>#FF0000</code>).</li>
+                <li><code>bgColor</code> (optional): The background color in RGB hex format or <code>transparent</code> (default: <code>transparent</code>).</li>
             </ul>
             <p><strong>Example Usage:</strong></p>
             <ul>
-                <li><code>/time?font=Arial&tz=America/New_York&fontSize=50&color=#FF0000&bgColor=#FFFFFF</code></li>
-                <li><code>/time?font=Pixel&tz=UTC&fontSize=30&color=#0000FF&bgColor=transparent</code></li>
-                <li><code>/time?fontURL=https://example.com/custom_font.woff2&tz=Europe/London</code></li>
+                <li><code>/api/time?font=Arial&tz=America/New_York&fontSize=50&color=#FF0000&bgColor=#FFFFFF</code></li>
+                <li><code>/api/time?font=Pixel&tz=UTC&fontSize=30&color=#0000FF&bgColor=transparent</code></li>
+                <li><code>/api/time?fontURL=https://example.com/custom_font.woff2&tz=Europe/London</code></li>
             </ul>
-            <p>Enjoy using ImageClock!</p>
+            <hr>
+            <p><strong>Test the API:</strong></p>
+            <form action="/api/time" method="get" target="_blank">
+                <label for="font">Font:</label>
+                <input type="text" id="font" name="font" placeholder="Arial"><br><br>
+
+                <label for="fontURL">Font URL (optional):</label>
+                <input type="url" id="fontURL" name="fontURL" placeholder="https://example.com/font.woff2"><br><br>
+
+                <label for="tz">Time Zone:</label>
+                <input type="text" id="tz" name="tz" placeholder="UTC"><br><br>
+
+                <label for="fontSize">Font Size (optional):</label>
+                <input type="number" id="fontSize" name="fontSize" placeholder="40"><br><br>
+
+                <label for="color">Text Color (optional):</label>
+                <input type="text" id="color" name="color" placeholder="#000000"><br><br>
+
+                <label for="bgColor">Background Color (optional):</label>
+                <input type="text" id="bgColor" name="bgColor" placeholder="transparent"><br><br>
+
+                <button type="submit">Generate Time Image</button>
+            </form>
         </div>
+        <!-- GitHub Button -->
+        <a href="https://github.com/kolegaa/ImageClock" target="_blank" style="position: absolute; bottom: 10px; right: 10px; text-decoration: none;">
+            <img src="github-mark.svg" alt="GitHub Logo" style="width: 24px; height: 24px; vertical-align: middle;">
+            <span style="font-size: 14px; color: black; font-family: 'MS Sans Serif', Arial, sans-serif;"></span>
+        </a>
     </div>
     <style>
         body {
-            background-color: #007f7e
+            background-color: #007f7e;
+            font-family: "MS Sans Serif", Arial, sans-serif;
         }
     </style>
 </body>
