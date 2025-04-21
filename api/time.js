@@ -1,11 +1,8 @@
-const express = require('express');
 const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { exec } = require('child_process');
-
-const app = express();
 
 // Helper function to download the font if it doesn't exist
 const downloadFont = (url, outputPath, callback) => {
@@ -21,45 +18,38 @@ const downloadFont = (url, outputPath, callback) => {
     });
 };
 
-// Serve static files (like CSS) from the current directory
-app.use(express.static(path.join(__dirname)));
-
-// Serve the usage guide on the `/` route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.get('/time', (req, res) => {
+module.exports = async (req, res) => {
     const { font = 'Arial', fontURL, tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
 
     let fontFamily = font;
     const fontSizePx = parseInt(fontSize, 10);
 
+    const fontPath = path.resolve('/tmp/custom_font.woff2');
+    const convertedFontPath = path.resolve('/tmp/custom_font.ttf');
+
     // Handle custom font download and conversion
     if (fontURL) {
-        const fontPath = path.resolve('./fonts/custom_font.woff2');
-        const convertedFontPath = path.resolve('./fonts/custom_font.ttf');
-
-        // Download the font
         if (!fs.existsSync(fontPath)) {
             console.log('Downloading custom font...');
-            downloadFont(fontURL, fontPath, () => {
-                console.log('Converting font to TTF...');
-                // Convert the font to TTF using a tool like fonttools
-                exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
-                    if (err) {
-                        console.error(`Error converting font: ${stderr}`);
-                        fontFamily = 'Arial'; // Fallback to Arial
-                    } else {
-                        console.log('Font converted successfully.');
-                        try {
-                            registerFont(convertedFontPath, { family: 'CustomFont' });
-                            fontFamily = 'CustomFont';
-                        } catch (err) {
-                            console.error(`Failed to register custom font: ${err.message}`);
+            await new Promise((resolve) => {
+                downloadFont(fontURL, fontPath, () => {
+                    console.log('Converting font to TTF...');
+                    exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
+                        if (err) {
+                            console.error(`Error converting font: ${stderr}`);
                             fontFamily = 'Arial'; // Fallback to Arial
+                        } else {
+                            console.log('Font converted successfully.');
+                            try {
+                                registerFont(convertedFontPath, { family: 'CustomFont' });
+                                fontFamily = 'CustomFont';
+                            } catch (err) {
+                                console.error(`Failed to register custom font: ${err.message}`);
+                                fontFamily = 'Arial'; // Fallback to Arial
+                            }
                         }
-                    }
+                        resolve();
+                    });
                 });
             });
         } else {
@@ -70,26 +60,6 @@ app.get('/time', (req, res) => {
                 console.error(`Failed to register custom font: ${err.message}`);
                 fontFamily = 'Arial'; // Fallback to Arial
             }
-        }
-    } else if (font === 'Pixel') {
-        // Handle the Pixel font
-        const fontPath = path.resolve('./fonts/ms_sans_serif.woff2');
-        if (!fs.existsSync(fontPath)) {
-            console.log('Downloading Pixel font...');
-            downloadFont('https://unpkg.com/98.css@0.1.20/dist/ms_sans_serif.woff2', fontPath, () => {
-                registerFont(fontPath, { family: 'Pixel' });
-            });
-        } else {
-            registerFont(fontPath, { family: 'Pixel' });
-        }
-        fontFamily = 'Pixel';
-    } else {
-        // Register the font if provided
-        try {
-            registerFont(`./fonts/${font}.ttf`, { family: font });
-        } catch (err) {
-            console.error(`Font not found: ${font}, falling back to Arial.`);
-            fontFamily = 'Arial'; // Fallback to Arial
         }
     }
 
@@ -131,9 +101,4 @@ app.get('/time', (req, res) => {
     // Send the PNG as a response
     res.setHeader('Content-Type', 'image/png');
     canvas.createPNGStream().pipe(res);
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+};
