@@ -3,35 +3,62 @@ const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const { exec } = require('child_process');
 
 const app = express();
 
-// Helper function to download the font if it doesn't exist
-const downloadFont = (url, outputPath, callback) => {
-    const file = fs.createWriteStream(outputPath);
-    https.get(url, (response) => {
-        response.pipe(file);
-        file.on('finish', () => {
-            file.close(callback);
-        });
-    }).on('error', (err) => {
-        fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
-        console.error(`Error downloading font: ${err.message}`);
-    });
-};
+// Serve static files (like CSS) from the current directory
+app.use(express.static(path.join(__dirname)));
 
+// Serve the usage guide on the `/` route
 app.get('/', (req, res) => {
-    res.send('Welcome! Use the /time endpoint with query parameters like ?font=Pixel&tz=America/New_York to get the current time as an image.');
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/time', (req, res) => {
-    const { font = 'Arial', tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
+    const { font = 'Arial', fontURL, tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
 
     let fontFamily = font;
     const fontSizePx = parseInt(fontSize, 10);
 
-    // Handle the Pixel font
-    if (font === 'Pixel') {
+    // Handle custom font download and conversion
+    if (fontURL) {
+        const fontPath = path.resolve('./fonts/custom_font.woff2');
+        const convertedFontPath = path.resolve('./fonts/custom_font.ttf');
+
+        // Download the font
+        if (!fs.existsSync(fontPath)) {
+            console.log('Downloading custom font...');
+            downloadFont(fontURL, fontPath, () => {
+                console.log('Converting font to TTF...');
+                // Convert the font to TTF using a tool like fonttools
+                exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
+                    if (err) {
+                        console.error(`Error converting font: ${stderr}`);
+                        fontFamily = 'Arial'; // Fallback to Arial
+                    } else {
+                        console.log('Font converted successfully.');
+                        try {
+                            registerFont(convertedFontPath, { family: 'CustomFont' });
+                            fontFamily = 'CustomFont';
+                        } catch (err) {
+                            console.error(`Failed to register custom font: ${err.message}`);
+                            fontFamily = 'Arial'; // Fallback to Arial
+                        }
+                    }
+                });
+            });
+        } else {
+            try {
+                registerFont(convertedFontPath, { family: 'CustomFont' });
+                fontFamily = 'CustomFont';
+            } catch (err) {
+                console.error(`Failed to register custom font: ${err.message}`);
+                fontFamily = 'Arial'; // Fallback to Arial
+            }
+        }
+    } else if (font === 'Pixel') {
+        // Handle the Pixel font
         const fontPath = path.resolve('./fonts/ms_sans_serif.woff2');
         if (!fs.existsSync(fontPath)) {
             console.log('Downloading Pixel font...');
