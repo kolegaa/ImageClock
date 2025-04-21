@@ -7,6 +7,20 @@ const { exec } = require('child_process');
 
 const app = express();
 
+// Helper function to download the font if it doesn't exist
+const downloadFont = (url, outputPath, callback) => {
+    const file = fs.createWriteStream(outputPath);
+    https.get(url, (response) => {
+        response.pipe(file);
+        file.on('finish', () => {
+            file.close(callback);
+        });
+    }).on('error', (err) => {
+        fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
+        console.error(`Error downloading font: ${err.message}`);
+    });
+};
+
 // Serve static files (like CSS) from the current directory
 app.use(express.static(path.join(__dirname)));
 

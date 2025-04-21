@@ -30,9 +30,9 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
-    # Install dependencies
+    # Install dependencies using npm ci
     - name: Install dependencies
-      run: npm install express canvas
+      run: npm ci
 
     # Run the server and test the `/` route
     - name: Start server and test
