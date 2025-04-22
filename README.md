@@ -1,6 +1,3 @@
-# WIP!
-doesn't work fully quite yet
-
 # ImageClock
 Webapp that returns the current time as an image.
 
@@ -8,7 +5,7 @@ Webapp that returns the current time as an image.
 I wanted to show what time it is for me on spacehey but they don't allow javascript.
 
 # How?
-node.js, canvas, and copilot because i don't actually know js.
+node.js and canvas
 
 # How do you use it?
 i put a guide in index.html
