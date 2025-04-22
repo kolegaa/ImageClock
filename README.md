@@ -12,3 +12,6 @@ node.js, canvas, and copilot because i don't actually know js.
 
 # How do you use it?
 i put a guide in index.html
+
+# License
+This software is licensed under [The unlicense](https://unlicense.org/)
