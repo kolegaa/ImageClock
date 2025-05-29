@@ -55,8 +55,10 @@ module.exports = async (req, res) => {
     if (fontURL) {
         try {
             if (!fs.existsSync(fontPath)) {
-                console.log('Downloading custom font...');
+                console.log(`Downloading custom font from ${fontURL}...`);
                 await downloadFont(fontURL, fontPath);
+            } else {
+                console.log(`Custom font already exists at ${fontPath}.`);
             }
 
             console.log('Converting font to TTF...');
@@ -74,6 +76,7 @@ module.exports = async (req, res) => {
             });
 
             if (fs.existsSync(convertedFontPath)) {
+                console.log(`Converted font exists at ${convertedFontPath}. Attempting to register...`);
                 try {
                     registerFont(convertedFontPath, { family: 'CustomFont' });
                     fontFamily = 'CustomFont';
@@ -90,7 +93,12 @@ module.exports = async (req, res) => {
             console.error(`Font processing failed: ${err.message}`);
             fontFamily = 'Pixel'; // Fallback to Pixel
         }
+    } else {
+        console.log('No custom font URL provided. Using default font.');
     }
+
+    // Debugging: Log the font family being used
+    console.log(`Using font family: ${fontFamily}`);
 
     // Get the current time in 24-hour format
     let currentTime;
@@ -101,11 +109,19 @@ module.exports = async (req, res) => {
         currentTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
     }
 
-    // Create a temporary canvas to measure text dimensions
-    const tempCanvas = createCanvas(1, 1);
+    // Debugging: Render text using the canvas
+    const tempCanvas = createCanvas(200, 50);
     const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.font = `${fontSizePx}px ${fontFamily}`;
-    const textWidth = tempCtx.measureText(currentTime).width;
+    tempCtx.font = `40px ${fontFamily}`;
+    tempCtx.fillStyle = 'black';
+    tempCtx.fillText('Test Text', 10, 40);
+    console.log('Canvas rendering test completed.');
+
+    // Create a temporary canvas to measure text dimensions
+    const tempCanvasMeasure = createCanvas(1, 1);
+    const tempCtxMeasure = tempCanvasMeasure.getContext('2d');
+    tempCtxMeasure.font = `${fontSizePx}px ${fontFamily}`;
+    const textWidth = tempCtxMeasure.measureText(currentTime).width;
     const textHeight = fontSizePx * 1.2; // Approximation for text height
 
     // Create a canvas with dynamic size
