@@ -5,42 +5,18 @@ const https = require('https');
 const { exec } = require('child_process');
 
 // Helper function to download the font if it doesn't exist
-const downloadFont = (url, outputPath) => {
-    return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(outputPath);
-        https.get(url, (response) => {
-            response.pipe(file);
-            file.on('finish', () => {
-                file.close(() => {
-                    console.log(`Font downloaded successfully to ${outputPath}`);
-                    resolve();
-                });
-            });
-        }).on('error', (err) => {
-            fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
-            console.error(`Error downloading font: ${err.message}`);
-            reject(err);
+const downloadFont = (url, outputPath, callback) => {
+    const file = fs.createWriteStream(outputPath);
+    https.get(url, (response) => {
+        response.pipe(file);
+        file.on('finish', () => {
+            file.close(callback);
         });
+    }).on('error', (err) => {
+        fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
+        console.error(`Error downloading font: ${err.message}`);
     });
 };
-
-// Helper function to register the default font
-const registerDefaultFont = () => {
-    try {
-        const defaultFontPath = path.resolve(__dirname, 'fonts', 'Pixel.ttf'); // Adjust path if necessary
-        if (fs.existsSync(defaultFontPath)) {
-            registerFont(defaultFontPath, { family: 'Pixel' });
-            console.log('Default font (Pixel) registered successfully.');
-        } else {
-            console.error('Default font file (Pixel.ttf) is missing.');
-        }
-    } catch (err) {
-        console.error(`Failed to register default font: ${err.message}`);
-    }
-};
-
-// Register the default font at startup
-registerDefaultFont();
 
 module.exports = async (req, res) => {
     const { font = 'Pixel', fontURL, tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
@@ -53,52 +29,54 @@ module.exports = async (req, res) => {
 
     // Handle custom font download and conversion
     if (fontURL) {
-        try {
-            if (!fs.existsSync(fontPath)) {
-                console.log(`Downloading custom font from ${fontURL}...`);
-                await downloadFont(fontURL, fontPath);
-            } else {
-                console.log(`Custom font already exists at ${fontPath}.`);
-            }
-
-            console.log('Converting font to TTF...');
-            await new Promise((resolve, reject) => {
-                exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
-                    if (err) {
-                        console.error(`Error converting font: ${stderr}`);
-                        fontFamily = 'Pixel'; // Fallback to Pixel
-                        reject(err);
-                    } else {
-                        console.log('Font converted successfully.');
+        if (!fs.existsSync(fontPath)) {
+            console.log('Downloading custom font...');
+            await new Promise((resolve) => {
+                downloadFont(fontURL, fontPath, () => {
+                    console.log('Converting font to TTF...');
+                    exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
+                        if (err) {
+                            console.error(`Error converting font: ${stderr}`);
+                            fontFamily = 'Pixel'; // Fallback to Pixel
+                        } else {
+                            console.log('Font converted successfully.');
+                            try {
+                                registerFont(convertedFontPath, { family: 'CustomFont' });
+                                fontFamily = 'CustomFont';
+                            } catch (err) {
+                                console.error(`Failed to register custom font: ${err.message}`);
+                                fontFamily = 'Pixel'; // Fallback to Pixel
+                            }
+                        }
                         resolve();
-                    }
+                    });
                 });
             });
-
-            if (fs.existsSync(convertedFontPath)) {
-                console.log(`Converted font exists at ${convertedFontPath}. Attempting to register...`);
-                try {
-                    registerFont(convertedFontPath, { family: 'CustomFont' });
-                    fontFamily = 'CustomFont';
-                    console.log('Custom font registered successfully.');
-                } catch (err) {
-                    console.error(`Failed to register custom font: ${err.message}`);
-                    fontFamily = 'Pixel'; // Fallback to Pixel
-                }
-            } else {
-                console.error('Converted font file does not exist.');
+        } else {
+            try {
+                registerFont(convertedFontPath, { family: 'CustomFont' });
+                fontFamily = 'CustomFont';
+            } catch (err) {
+                console.error(`Failed to register custom font: ${err.message}`);
                 fontFamily = 'Pixel'; // Fallback to Pixel
             }
-        } catch (err) {
-            console.error(`Font processing failed: ${err.message}`);
-            fontFamily = 'Pixel'; // Fallback to Pixel
         }
     } else {
-        console.log('No custom font URL provided. Using default font.');
+        // Default to Pixel font
+        try {
+            const pixelFontPath = path.resolve('./fonts/ms_sans_serif.ttf'); // Use the converted TTF file
+            if (fs.existsSync(pixelFontPath)) {
+                registerFont(pixelFontPath, { family: 'Pixel' });
+                fontFamily = 'Pixel';
+            } else {
+                console.error('Pixel font not found, falling back to Arial.');
+                fontFamily = 'Arial';
+            }
+        } catch (err) {
+            console.error(`Failed to register Pixel font: ${err.message}`);
+            fontFamily = 'Arial'; // Fallback to Arial
+        }
     }
-
-    // Debugging: Log the font family being used
-    console.log(`Using font family: ${fontFamily}`);
 
     // Get the current time in 24-hour format
     let currentTime;
@@ -109,19 +87,11 @@ module.exports = async (req, res) => {
         currentTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
     }
 
-    // Debugging: Render text using the canvas
-    const tempCanvas = createCanvas(200, 50);
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.font = `40px ${fontFamily}`;
-    tempCtx.fillStyle = 'black';
-    tempCtx.fillText('Test Text', 10, 40);
-    console.log('Canvas rendering test completed.');
-
     // Create a temporary canvas to measure text dimensions
-    const tempCanvasMeasure = createCanvas(1, 1);
-    const tempCtxMeasure = tempCanvasMeasure.getContext('2d');
-    tempCtxMeasure.font = `${fontSizePx}px ${fontFamily}`;
-    const textWidth = tempCtxMeasure.measureText(currentTime).width;
+    const tempCanvas = createCanvas(1, 1);
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.font = `${fontSizePx}px ${fontFamily}`;
+    const textWidth = tempCtx.measureText(currentTime).width;
     const textHeight = fontSizePx * 1.2; // Approximation for text height
 
     // Create a canvas with dynamic size
@@ -143,7 +113,7 @@ module.exports = async (req, res) => {
     ctx.textBaseline = 'middle';
     ctx.fillText(currentTime, canvas.width / 2, canvas.height / 2);
 
-    // Send the canvas as a response
+    // Send the PNG as a response
     res.setHeader('Content-Type', 'image/png');
-    res.send(canvas.toBuffer());
+    canvas.createPNGStream().pipe(res);
 };
