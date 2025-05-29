@@ -5,16 +5,31 @@ const https = require('https');
 const { exec } = require('child_process');
 
 // Helper function to download the font if it doesn't exist
-const downloadFont = (url, outputPath, callback) => {
-    const file = fs.createWriteStream(outputPath);
-    https.get(url, (response) => {
-        response.pipe(file);
-        file.on('finish', () => {
-            file.close(callback);
+const downloadFont = (url, outputPath) => {
+    return new Promise((resolve, reject) => {
+        // Validate URL
+        try {
+            new URL(url);
+        } catch (e) {
+            reject(new Error('Invalid font URL'));
+            return;
+        }
+
+        const file = fs.createWriteStream(outputPath);
+        https.get(url, (response) => {
+            if (response.statusCode !== 200) {
+                reject(new Error(`Failed to download font: ${response.statusCode}`));
+                return;
+            }
+
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(() => resolve());
+            });
+        }).on('error', (err) => {
+            fs.unlink(outputPath, () => {});
+            reject(err);
         });
-    }).on('error', (err) => {
-        fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
-        console.error(`Error downloading font: ${err.message}`);
     });
 };
 
@@ -24,42 +39,28 @@ module.exports = async (req, res) => {
     let fontFamily = font;
     const fontSizePx = parseInt(fontSize, 10);
 
-    const fontPath = path.resolve('/tmp/custom_font.woff2');
-    const convertedFontPath = path.resolve('/tmp/custom_font.ttf');
+    // Use URL-safe filename based on the fontURL
+    const fontFileName = fontURL ? Buffer.from(fontURL).toString('base64').replace(/[/+=]/g, '_') : '';
+    const fontPath = path.resolve(`/tmp/${fontFileName}.font`);
+    const convertedFontPath = path.resolve(`/tmp/${fontFileName}.ttf`);
 
     // Handle custom font download and conversion
     if (fontURL) {
-        if (!fs.existsSync(fontPath)) {
-            console.log('Downloading custom font...');
-            await new Promise((resolve) => {
-                downloadFont(fontURL, fontPath, () => {
-                    console.log('Converting font to TTF...');
-                    exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
-                        if (err) {
-                            console.error(`Error converting font: ${stderr}`);
-                            fontFamily = 'Pixel'; // Fallback to Pixel
-                        } else {
-                            console.log('Font converted successfully.');
-                            try {
-                                registerFont(convertedFontPath, { family: 'CustomFont' });
-                                fontFamily = 'CustomFont';
-                            } catch (err) {
-                                console.error(`Failed to register custom font: ${err.message}`);
-                                fontFamily = 'Pixel'; // Fallback to Pixel
-                            }
-                        }
-                        resolve();
+        try {
+            if (!fs.existsSync(convertedFontPath)) {
+                await downloadFont(fontURL, fontPath);
+                await new Promise((resolve, reject) => {
+                    exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err) => {
+                        if (err) reject(err);
+                        else resolve();
                     });
                 });
-            });
-        } else {
-            try {
-                registerFont(convertedFontPath, { family: 'CustomFont' });
-                fontFamily = 'CustomFont';
-            } catch (err) {
-                console.error(`Failed to register custom font: ${err.message}`);
-                fontFamily = 'Pixel'; // Fallback to Pixel
             }
+            registerFont(convertedFontPath, { family: 'CustomFont' });
+            fontFamily = 'CustomFont';
+        } catch (err) {
+            console.error(`Font processing error: ${err.message}`);
+            fontFamily = 'Pixel'; // Fallback to Pixel
         }
     } else {
         // Default to Pixel font
