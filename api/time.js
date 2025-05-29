@@ -21,6 +21,24 @@ const downloadFont = (url, outputPath, callback) => {
     });
 };
 
+// Helper function to register the default font
+const registerDefaultFont = () => {
+    try {
+        const defaultFontPath = path.resolve(__dirname, 'fonts', 'Pixel.ttf'); // Adjust path if necessary
+        if (fs.existsSync(defaultFontPath)) {
+            registerFont(defaultFontPath, { family: 'Pixel' });
+            console.log('Default font (Pixel) registered successfully.');
+        } else {
+            console.error('Default font file (Pixel.ttf) is missing.');
+        }
+    } catch (err) {
+        console.error(`Failed to register default font: ${err.message}`);
+    }
+};
+
+// Register the default font at startup
+registerDefaultFont();
+
 module.exports = async (req, res) => {
     const { font = 'Pixel', fontURL, tz = 'UTC', fontSize = '40', color = 'black', bgColor = 'transparent' } = req.query;
 
