@@ -5,19 +5,22 @@ const https = require('https');
 const { exec } = require('child_process');
 
 // Helper function to download the font if it doesn't exist
-const downloadFont = (url, outputPath, callback) => {
-    const file = fs.createWriteStream(outputPath);
-    https.get(url, (response) => {
-        response.pipe(file);
-        file.on('finish', () => {
-            file.close(() => {
-                console.log(`Font downloaded successfully to ${outputPath}`);
-                callback();
+const downloadFont = (url, outputPath) => {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(outputPath);
+        https.get(url, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(() => {
+                    console.log(`Font downloaded successfully to ${outputPath}`);
+                    resolve();
+                });
             });
+        }).on('error', (err) => {
+            fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
+            console.error(`Error downloading font: ${err.message}`);
+            reject(err);
         });
-    }).on('error', (err) => {
-        fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
-        console.error(`Error downloading font: ${err.message}`);
     });
 };
 
@@ -50,42 +53,42 @@ module.exports = async (req, res) => {
 
     // Handle custom font download and conversion
     if (fontURL) {
-        if (!fs.existsSync(fontPath)) {
-            console.log('Downloading custom font...');
+        try {
+            if (!fs.existsSync(fontPath)) {
+                console.log('Downloading custom font...');
+                await downloadFont(fontURL, fontPath);
+            }
+
+            console.log('Converting font to TTF...');
             await new Promise((resolve, reject) => {
-                downloadFont(fontURL, fontPath, async () => {
-                    console.log('Converting font to TTF...');
-                    exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
-                        if (err) {
-                            console.error(`Error converting font: ${stderr}`);
-                            fontFamily = 'Pixel'; // Fallback to Pixel
-                            reject(err);
-                        } else {
-                            console.log('Font converted successfully.');
-                            if (fs.existsSync(convertedFontPath)) {
-                                try {
-                                    registerFont(convertedFontPath, { family: 'CustomFont' });
-                                    fontFamily = 'CustomFont';
-                                    console.log('Custom font registered successfully.');
-                                    resolve();
-                                } catch (err) {
-                                    console.error(`Failed to register custom font: ${err.message}`);
-                                    fontFamily = 'Pixel'; // Fallback to Pixel
-                                    reject(err);
-                                }
-                            } else {
-                                console.error('Converted font file does not exist.');
-                                fontFamily = 'Pixel'; // Fallback to Pixel
-                                reject(new Error('Converted font file missing.'));
-                            }
-                        }
-                    });
+                exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
+                    if (err) {
+                        console.error(`Error converting font: ${stderr}`);
+                        fontFamily = 'Pixel'; // Fallback to Pixel
+                        reject(err);
+                    } else {
+                        console.log('Font converted successfully.');
+                        resolve();
+                    }
                 });
-            }).catch((err) => {
-                console.error(`Font processing failed: ${err.message}`);
             });
-        } else {
-            console.log('Font already exists, skipping download.');
+
+            if (fs.existsSync(convertedFontPath)) {
+                try {
+                    registerFont(convertedFontPath, { family: 'CustomFont' });
+                    fontFamily = 'CustomFont';
+                    console.log('Custom font registered successfully.');
+                } catch (err) {
+                    console.error(`Failed to register custom font: ${err.message}`);
+                    fontFamily = 'Pixel'; // Fallback to Pixel
+                }
+            } else {
+                console.error('Converted font file does not exist.');
+                fontFamily = 'Pixel'; // Fallback to Pixel
+            }
+        } catch (err) {
+            console.error(`Font processing failed: ${err.message}`);
+            fontFamily = 'Pixel'; // Fallback to Pixel
         }
     }
 
@@ -124,7 +127,7 @@ module.exports = async (req, res) => {
     ctx.textBaseline = 'middle';
     ctx.fillText(currentTime, canvas.width / 2, canvas.height / 2);
 
-    // Send the PNG as a response
+    // Send the canvas as a response
     res.setHeader('Content-Type', 'image/png');
-    canvas.createPNGStream().pipe(res);
+    res.send(canvas.toBuffer());
 };
