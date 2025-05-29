@@ -10,7 +10,10 @@ const downloadFont = (url, outputPath, callback) => {
     https.get(url, (response) => {
         response.pipe(file);
         file.on('finish', () => {
-            file.close(callback);
+            file.close(() => {
+                console.log(`Font downloaded successfully to ${outputPath}`);
+                callback();
+            });
         });
     }).on('error', (err) => {
         fs.unlink(outputPath, () => {}); // Delete the file if an error occurs
@@ -31,50 +34,40 @@ module.exports = async (req, res) => {
     if (fontURL) {
         if (!fs.existsSync(fontPath)) {
             console.log('Downloading custom font...');
-            await new Promise((resolve) => {
-                downloadFont(fontURL, fontPath, () => {
+            await new Promise((resolve, reject) => {
+                downloadFont(fontURL, fontPath, async () => {
                     console.log('Converting font to TTF...');
                     exec(`pyftsubset ${fontPath} --output-file=${convertedFontPath} --flavor=truetype`, (err, stdout, stderr) => {
                         if (err) {
                             console.error(`Error converting font: ${stderr}`);
                             fontFamily = 'Pixel'; // Fallback to Pixel
+                            reject(err);
                         } else {
                             console.log('Font converted successfully.');
-                            try {
-                                registerFont(convertedFontPath, { family: 'CustomFont' });
-                                fontFamily = 'CustomFont';
-                            } catch (err) {
-                                console.error(`Failed to register custom font: ${err.message}`);
+                            if (fs.existsSync(convertedFontPath)) {
+                                try {
+                                    registerFont(convertedFontPath, { family: 'CustomFont' });
+                                    fontFamily = 'CustomFont';
+                                    console.log('Custom font registered successfully.');
+                                    resolve();
+                                } catch (err) {
+                                    console.error(`Failed to register custom font: ${err.message}`);
+                                    fontFamily = 'Pixel'; // Fallback to Pixel
+                                    reject(err);
+                                }
+                            } else {
+                                console.error('Converted font file does not exist.');
                                 fontFamily = 'Pixel'; // Fallback to Pixel
+                                reject(new Error('Converted font file missing.'));
                             }
                         }
-                        resolve();
                     });
                 });
+            }).catch((err) => {
+                console.error(`Font processing failed: ${err.message}`);
             });
         } else {
-            try {
-                registerFont(convertedFontPath, { family: 'CustomFont' });
-                fontFamily = 'CustomFont';
-            } catch (err) {
-                console.error(`Failed to register custom font: ${err.message}`);
-                fontFamily = 'Pixel'; // Fallback to Pixel
-            }
-        }
-    } else {
-        // Default to Pixel font
-        try {
-            const pixelFontPath = path.resolve('./fonts/ms_sans_serif.ttf'); // Use the converted TTF file
-            if (fs.existsSync(pixelFontPath)) {
-                registerFont(pixelFontPath, { family: 'Pixel' });
-                fontFamily = 'Pixel';
-            } else {
-                console.error('Pixel font not found, falling back to Arial.');
-                fontFamily = 'Arial';
-            }
-        } catch (err) {
-            console.error(`Failed to register Pixel font: ${err.message}`);
-            fontFamily = 'Arial'; // Fallback to Arial
+            console.log('Font already exists, skipping download.');
         }
     }
 
